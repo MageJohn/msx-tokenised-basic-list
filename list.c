@@ -151,11 +151,12 @@ void printprecission(FILE *fd, int digits) {
       break;
     else
       flag = 0;
-  if (flag != 0)
+  if (flag != 0) {
     if (string[flag - 1] == '.')
       string[flag - 1] = '\0';
     else
       string[flag] = '\0';
+  }
 
   printf("%s", string);
   if (exp > digits * 2)
