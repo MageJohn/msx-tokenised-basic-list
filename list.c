@@ -164,7 +164,7 @@ void printprecission(FILE *fd, int digits) {
 }
 
 /* The main routine */
-void main(int argc, char *argv[]) { /* declarations */
+int main(int argc, char *argv[]) { /* declarations */
   FILE *fd;
   short character;
   short forwarded;
