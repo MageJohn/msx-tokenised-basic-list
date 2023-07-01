@@ -170,7 +170,6 @@ int main(int argc, char *argv[]) { /* declarations */
   short forwarded;
   short exp;
   int linenumber;
-  int lineaddress;
   int goon;
 
   /* Check argument syntax */
@@ -207,7 +206,7 @@ int main(int argc, char *argv[]) { /* declarations */
 
   /* Process the input file */
   /* read line number, and address were next line begins */
-  while (lineaddress = readword(fd) != 0) {
+  while (readword(fd) != 0) {
     linenumber = readword(fd);
     printf("%d ", linenumber);
     /* read line of BASIC file */
