@@ -168,7 +168,6 @@ int main(int argc, char *argv[]) { /* declarations */
   FILE *fd;
   short character;
   short forwarded;
-  short exp;
   int linenumber;
   int goon;
 
