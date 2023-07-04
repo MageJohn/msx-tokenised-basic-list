@@ -18,67 +18,61 @@
 #include <string.h>
 
 /* the BASIC tokens */
-char *tokens_1[128] = {
-    "",        "END",    "FOR",    "NEXT",
-    "DATA",    "INPUT",  "DIM",    "READ",
-    "LET",     "GOTO",   "RUN",    "IF",
-    "RESTORE", "GOSUB",  "RETURN", "REM", /* 80-8F */
-    "STOP",    "PRINT",  "CLEAR",  "LIST",
-    "NEW",     "ON",     "WAIT",   "DEF",
-    "POKE",    "CONT",   "CSAVE",  "CLOAD",
-    "OUT",     "LPRINT", "LLIST",  "CLS", /* 90-9F */
-    "WIDTH",   "ELSE",   "TRON",   "TROFF",
-    "SWAP",    "ERASE",  "ERROR",  "RESUME",
-    "DELETE",  "AUTO",   "RENUM",  "DEFSTR",
-    "DEFINT",  "DEFSNG", "DEFDBL", "LINE", /* A0-AF */
-    "OPEN",    "FIELD",  "GET",    "PUT",
-    "CLOSE",   "LOAD",   "MERGE",  "FILES",
-    "LSET",    "RSET",   "SAVE",   "LFILES",
-    "CIRCLE",  "COLOR",  "DRAW",   "PAINT", /* B0-BF */
-    "BEEP",    "PLAY",   "PSET",   "PRESET",
-    "SOUND",   "SCREEN", "VPOKE",  "SPRITE",
-    "VDP",     "BASE",   "CALL",   "TIME",
-    "KEY",     "MAX",    "MOTOR",  "BLOAD", /* C0-CF */
-    "BSAVE",   "DSKO$",  "SET",    "NAME",
-    "KILL",    "IPL",    "COPY",   "CMD",
-    "LOCATE",  "TO",     "THEN",   "TABC",
-    "STEP",    "USR",    "FN",     "SPCL", /* D0-DF */
-    "NOT",     "ERL",    "ERR",    "STRING$",
-    "USING",   "INSRT",  "",       "VARPTR",
-    "CSRLIN",  "ATTR$",  "DSKI$",  "OFF",
-    "INKEY$",  "POINT",  ">",      "=", /* E0-EF */
-    "<",       "+",      "-",      "*",
-    "/",       "^",      "AND",    "OR",
-    "XOR",     "EQV",    "IMP",    "MOD",
-    "\\",      "",       "",       "{escape-code}" /* F0-FF */
 
+// One byte tokens
+char *tokens_1[128] = {
+    "",        "END",    "FOR",    "NEXT",    /* 0x80-0x83 */
+    "DATA",    "INPUT",  "DIM",    "READ",    /* 0x84-0x87 */
+    "LET",     "GOTO",   "RUN",    "IF",      /* 0x88-0x8B */
+    "RESTORE", "GOSUB",  "RETURN", "REM",     /* 0x8C-0x8F */
+    "STOP",    "PRINT",  "CLEAR",  "LIST",    /* 0x90-0x93 */
+    "NEW",     "ON",     "WAIT",   "DEF",     /* 0x94-0x97 */
+    "POKE",    "CONT",   "CSAVE",  "CLOAD",   /* 0x98-0x9B */
+    "OUT",     "LPRINT", "LLIST",  "CLS",     /* 0x9C-0x9F */
+    "WIDTH",   "",       "TRON",   "TROFF",   /* 0xA0-0xA3 */
+    "SWAP",    "ERASE",  "ERROR",  "RESUME",  /* 0xA4-0xA7 */
+    "DELETE",  "AUTO",   "RENUM",  "DEFSTR",  /* 0xA8-0xAB */
+    "DEFINT",  "DEFSNG", "DEFDBL", "LINE",    /* 0xAC-0xAF */
+    "OPEN",    "FIELD",  "GET",    "PUT",     /* 0xB0-0xB3 */
+    "CLOSE",   "LOAD",   "MERGE",  "FILES",   /* 0xB4-0xB7 */
+    "LSET",    "RSET",   "SAVE",   "LFILES",  /* 0xB8-0xBB */
+    "CIRCLE",  "COLOR",  "DRAW",   "PAINT",   /* 0xBC-0xBF */
+    "BEEP",    "PLAY",   "PSET",   "PRESET",  /* 0xC0-0xC3 */
+    "SOUND",   "SCREEN", "VPOKE",  "SPRITE",  /* 0xC4-0xC7 */
+    "VDP",     "BASE",   "CALL",   "TIME",    /* 0xC8-0xCB */
+    "KEY",     "MAX",    "MOTOR",  "BLOAD",   /* 0xCC-0xCF */
+    "BSAVE",   "DSKO$",  "SET",    "NAME",    /* 0xD0-0xD3 */
+    "KILL",    "IPL",    "COPY",   "CMD",     /* 0xD4-0xD7 */
+    "LOCATE",  "TO",     "THEN",   "TABC",    /* 0xD8-0xDB */
+    "STEP",    "USR",    "FN",     "SPC(",    /* 0xDC-0xDF */
+    "NOT",     "ERL",    "ERR",    "STRING$", /* 0xE0-0xE3 */
+    "USING",   "INSRT",  "",       "VARPTR",  /* 0xE4-0xE7 */
+    "CSRLIN",  "ATTR$",  "DSKI$",  "OFF",     /* 0xE8-0xEB */
+    "INKEY$",  "POINT",  ">",      "=",       /* 0xEC-0xEF */
+    "<",       "+",      "-",      "*",       /* 0xF0-0xF3 */
+    "/",       "^",      "AND",    "OR",      /* 0xF4-0xF7 */
+    "XOR",     "EQV",    "IMP",    "MOD",     /* 0xF8-0xFB */
+    "\\",      "",       "",       ""         /* 0xFC-0xFF */
 };
 
-char *tokens_2[128] = {
-    "",     "LEFT$", "RIGHT$", "MID$",   "SGN",  "INT",
-    "ABS",  "SQR",   "RND",    "SIN",    "LOG",  "EXP",
-    "COS",  "TAN",   "ATN",    "FRE", /* 80-8F */
-    "INP",  "POS",   "LEN",    "STR$",   "VAL",  "ASC",
-    "CHR$", "PEEK",  "VPEEK",  "SPACE$", "OCT$", "HEX$",
-    "LPOS", "BIN$",  "CINT",   "CSNG", /* 90-9F */
-    "CDBL", "FIX",   "STICK",  "STRIG",  "PDL",  "PAD",
-    "DSKF", "FPOS",  "CVI",    "CVS",    "CVD",  "EOF",
-    "LOC",  "LOF",   "MKI$",   "MK$", /* A0-AF */
-    "MKD$", "",      "",       "",       "",     "",
-    "",     "",      "",       "",       "",     "",
-    "",     "",      "",       "", /* B0-BF */
-    "",     "",      "",       "",       "",     "",
-    "",     "",      "",       "",       "",     "",
-    "",     "",      "",       "", /* C0-CF */
-    "",     "",      "",       "",       "",     "",
-    "",     "",      "",       "",       "",     "",
-    "",     "",      "",       "", /* D0-DF */
-    "",     "",      "",       "",       "",     "",
-    "",     "",      "",       "",       "",     "",
-    "",     "",      "",       "", /* E0-EF */
-    "",     "",      "",       "",       "",     "",
-    "",     "",      "",       "",       "",     "",
-    "",     "",      "",       "" /* F0-FF */
+// Two byte tokens prefixed with 0xFF
+char *tokens_2[64] = {
+    "",      "LEFT$",  "RIGHT$", "MID$",  /* 0x80-0x83 */
+    "SGN",   "INT",    "ABS",    "SQR",   /* 0x84-0x87 */
+    "RND",   "SIN",    "LOG",    "EXP",   /* 0x88-0x8B */
+    "COS",   "TAN",    "ATN",    "FRE",   /* 0x8C-0x8F */
+    "INP",   "POS",    "LEN",    "STR$",  /* 0x90-0x93 */
+    "VAL",   "ASC",    "CHR$",   "PEEK",  /* 0x94-0x97 */
+    "VPEEK", "SPACE$", "OCT$",   "HEX$",  /* 0x98-0x9B */
+    "LPOS",  "BIN$",   "CINT",   "CSNG",  /* 0x9C-0x9F */
+    "CDBL",  "FIX",    "STICK",  "STRIG", /* 0xA0-0xA3 */
+    "PDL",   "PAD",    "DSKF",   "FPOS",  /* 0xA4-0xA7 */
+    "CVI",   "CVS",    "CVD",    "EOF",   /* 0xA8-0xAB */
+    "LOC",   "LOF",    "MKI$",   "MK$",   /* 0xAC-0xAF */
+    "MKD$",  "",       "",       "",      /* 0xB0-0xB3 */
+    "",      "",       "",       "",      /* 0xB4-0xB7 */
+    "",      "",       "",       "",      /* 0xB8-0xBB */
+    "",      "",       "",       "",      /* 0xBC-0xBF */
 };
 
 /* read a byte from a file */
