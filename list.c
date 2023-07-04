@@ -93,8 +93,8 @@ int getexp(FILE *fd) {
   return exp > 63 ? exp - 64 : -exp;
 }
 
-/* print single precission floating point */
-void printprecission(FILE *fd, int digits) {
+/* print single precision floating point */
+void printprecision(FILE *fd, int digits) {
   char lo, hi, string[20];
   int exp, i, j, flag;
   exp = getexp(fd);
@@ -257,9 +257,9 @@ int main(int argc, char *argv[]) { /* declarations */
       else if (character == 0x1C) /* integer */
         printf("%d", readword(fd));
       else if (character == 0x1D) /* single precission */
-        printprecission(fd, 3);
+        printprecision(fd, 3);
       else if (character == 0x1F) { /* double precission */
-        printprecission(fd, 7);
+        printprecision(fd, 7);
         printf("#");
       } else if (character >= 0x11 && character <= 0x1A)
         printf("%d", character - 0x11);
