@@ -99,7 +99,7 @@ void printprecission(FILE *fd, int digits) {
   for (i = j = 0; i < digits * 2; i++) {
     if (i % 2 == 0) {
       hi = getc(fd);
-      lo = hi & 0x0f;
+      lo = hi & 0x0F;
       hi = hi >> 4;
       string[j++] = '0' + hi;
     } else
@@ -201,17 +201,17 @@ int main(int argc, char *argv[]) { /* declarations */
         character = getc(fd);
       if (character == 0)
         goon = 0;
-      else if (character > 0x80 && character < 0xff)
+      else if (character > 0x80 && character < 0xFF)
         printf("%s", tokens_1[character - 0x80]);
-      else if (character == 0xff)
+      else if (character == 0xFF)
         printf("%s", tokens_2[getc(fd) - 0x80]);
-      else if (character == 0x3a) {
+      else if (character == 0x3A) {
         character = getc(fd);
-        if (character == 0xa1)
+        if (character == 0xA1)
           printf("ELSE");
-        else if (character == 0x8f) {
+        else if (character == 0x8F) {
           character = getc(fd);
-          if (character == 0xe6) {
+          if (character == 0xE6) {
             printf("'");
           } else {
             printf(":REM");
@@ -221,24 +221,24 @@ int main(int argc, char *argv[]) { /* declarations */
           printf(":");
           forwarded = character;
         }
-      } else if (character == 0x0b) /* octal number */
+      } else if (character == 0x0B) /* octal number */
         printf("&O%o", readword(fd));
-      else if (character == 0x0c) /* hexadecimal number */
+      else if (character == 0x0C) /* hexadecimal number */
         printf("&H%x", readword(fd));
-      else if (character == 0x0d) /* line number: address */
+      else if (character == 0x0D) /* line number: address */
         printf("{not yet implementated line reference}");
-      else if (character == 0x0e) /* line number */
+      else if (character == 0x0E) /* line number */
         printf("%d", readword(fd));
-      else if (character == 0x0f) /* integer */
+      else if (character == 0x0F) /* integer */
         printf("%d", getc(fd));
-      else if (character == 0x1c) /* integer */
+      else if (character == 0x1C) /* integer */
         printf("%d", readword(fd));
-      else if (character == 0x1d) /* single precission */
+      else if (character == 0x1D) /* single precission */
         printprecission(fd, 3);
-      else if (character == 0x1f) { /* double precission */
+      else if (character == 0x1F) { /* double precission */
         printprecission(fd, 7);
         printf("#");
-      } else if (character >= 0x11 && character <= 0x1a)
+      } else if (character >= 0x11 && character <= 0x1A)
         printf("%d", character - 0x11);
       else
         printf("%c", character);
