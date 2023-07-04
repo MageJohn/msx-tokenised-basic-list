@@ -13,15 +13,19 @@
 \****************************************************************************/
 
 /* Include files */
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#define TOKENS_1_LEN 128
+#define TOKENS_2_LEN 64
+
 /* the BASIC tokens */
 
 // One byte tokens
-char *tokens_1[128] = {
-    "",        "END",    "FOR",    "NEXT",    /* 0x80-0x83 */
+char *tokens_1[TOKENS_1_LEN] = {
+    NULL,      "END",    "FOR",    "NEXT",    /* 0x80-0x83 */
     "DATA",    "INPUT",  "DIM",    "READ",    /* 0x84-0x87 */
     "LET",     "GOTO",   "RUN",    "IF",      /* 0x88-0x8B */
     "RESTORE", "GOSUB",  "RETURN", "REM",     /* 0x8C-0x8F */
@@ -29,7 +33,7 @@ char *tokens_1[128] = {
     "NEW",     "ON",     "WAIT",   "DEF",     /* 0x94-0x97 */
     "POKE",    "CONT",   "CSAVE",  "CLOAD",   /* 0x98-0x9B */
     "OUT",     "LPRINT", "LLIST",  "CLS",     /* 0x9C-0x9F */
-    "WIDTH",   "",       "TRON",   "TROFF",   /* 0xA0-0xA3 */
+    "WIDTH",   NULL,     "TRON",   "TROFF",   /* 0xA0-0xA3 */
     "SWAP",    "ERASE",  "ERROR",  "RESUME",  /* 0xA4-0xA7 */
     "DELETE",  "AUTO",   "RENUM",  "DEFSTR",  /* 0xA8-0xAB */
     "DEFINT",  "DEFSNG", "DEFDBL", "LINE",    /* 0xAC-0xAF */
@@ -46,18 +50,18 @@ char *tokens_1[128] = {
     "LOCATE",  "TO",     "THEN",   "TABC",    /* 0xD8-0xDB */
     "STEP",    "USR",    "FN",     "SPC(",    /* 0xDC-0xDF */
     "NOT",     "ERL",    "ERR",    "STRING$", /* 0xE0-0xE3 */
-    "USING",   "INSRT",  "",       "VARPTR",  /* 0xE4-0xE7 */
+    "USING",   "INSRT",  NULL,     "VARPTR",  /* 0xE4-0xE7 */
     "CSRLIN",  "ATTR$",  "DSKI$",  "OFF",     /* 0xE8-0xEB */
     "INKEY$",  "POINT",  ">",      "=",       /* 0xEC-0xEF */
     "<",       "+",      "-",      "*",       /* 0xF0-0xF3 */
     "/",       "^",      "AND",    "OR",      /* 0xF4-0xF7 */
     "XOR",     "EQV",    "IMP",    "MOD",     /* 0xF8-0xFB */
-    "\\",      "",       "",       ""         /* 0xFC-0xFF */
+    "\\",      NULL,     NULL,     NULL       /* 0xFC-0xFF */
 };
 
 // Two byte tokens prefixed with 0xFF
-char *tokens_2[64] = {
-    "",      "LEFT$",  "RIGHT$", "MID$",  /* 0x80-0x83 */
+char *tokens_2[TOKENS_2_LEN] = {
+    NULL,    "LEFT$",  "RIGHT$", "MID$",  /* 0x80-0x83 */
     "SGN",   "INT",    "ABS",    "SQR",   /* 0x84-0x87 */
     "RND",   "SIN",    "LOG",    "EXP",   /* 0x88-0x8B */
     "COS",   "TAN",    "ATN",    "FRE",   /* 0x8C-0x8F */
@@ -69,10 +73,10 @@ char *tokens_2[64] = {
     "PDL",   "PAD",    "DSKF",   "FPOS",  /* 0xA4-0xA7 */
     "CVI",   "CVS",    "CVD",    "EOF",   /* 0xA8-0xAB */
     "LOC",   "LOF",    "MKI$",   "MK$",   /* 0xAC-0xAF */
-    "MKD$",  "",       "",       "",      /* 0xB0-0xB3 */
-    "",      "",       "",       "",      /* 0xB4-0xB7 */
-    "",      "",       "",       "",      /* 0xB8-0xBB */
-    "",      "",       "",       "",      /* 0xBC-0xBF */
+    "MKD$",  NULL,     NULL,     NULL,    /* 0xB0-0xB3 */
+    NULL,    NULL,     NULL,     NULL,    /* 0xB4-0xB7 */
+    NULL,    NULL,     NULL,     NULL,    /* 0xB8-0xBB */
+    NULL,    NULL,     NULL,     NULL,    /* 0xBC-0xBF */
 };
 
 /* read a byte from a file */
@@ -145,6 +149,13 @@ void printprecission(FILE *fd, int digits) {
     printf(" E%d", exp);
 }
 
+void error_prefix(int argc, char *argv[]) {
+  if (argc == 2)
+    fprintf(stderr, "%s: %s: ", argv[0], argv[1]);
+  else
+    fprintf(stderr, "%s: ", argv[0]);
+}
+
 /* The main routine */
 int main(int argc, char *argv[]) { /* declarations */
   FILE *fd;
@@ -176,12 +187,9 @@ int main(int argc, char *argv[]) { /* declarations */
 
   /* Read header and check if it is a BASIC programm */
   character = getc(fd);
-  if (character != 0xff) {
-    printf("%x\n", character);
-    if (argc == 2)
-      fprintf(stderr, "%s: %s: not an MSX-BASIC file\n", argv[0], argv[1]);
-    else
-      fprintf(stderr, "%s: not an MSX-BASIC file\n", argv[0]);
+  if (character != 0xFF) {
+    error_prefix(argc, argv);
+    fprintf(stderr, "not an MSX-BASIC file\n");
     exit(1);
   }
 
@@ -201,11 +209,26 @@ int main(int argc, char *argv[]) { /* declarations */
         character = getc(fd);
       if (character == 0)
         goon = 0;
-      else if (character > 0x80 && character < 0xFF)
-        printf("%s", tokens_1[character - 0x80]);
-      else if (character == 0xFF)
-        printf("%s", tokens_2[getc(fd) - 0x80]);
-      else if (character == 0x3A) {
+      else if (character >= 0x80 && character < (TOKENS_1_LEN + 0x80)) {
+        char *token = tokens_1[character - 0x80];
+        if (token != NULL)
+          printf("%s", token);
+        else {
+          error_prefix(argc, argv);
+          fprintf(stderr, "invalid token byte 0x%02X\n", character);
+        }
+      } else if (character == 0xFF) {
+        character = getc(fd);
+        if (character >= 0x80 && character < (TOKENS_2_LEN + 0x80)) {
+          char *token = tokens_2[character - 0x80];
+          if (token != NULL)
+            printf("%s", token);
+          else {
+            error_prefix(argc, argv);
+            fprintf(stderr, "invalid token byte pair 0xFF 0x%02X\n", character);
+          }
+        }
+      } else if (character == 0x3A) {
         character = getc(fd);
         if (character == 0xA1)
           printf("ELSE");
@@ -240,8 +263,12 @@ int main(int argc, char *argv[]) { /* declarations */
         printf("#");
       } else if (character >= 0x11 && character <= 0x1A)
         printf("%d", character - 0x11);
-      else
+      else if (isprint(character))
         printf("%c", character);
+      else {
+        error_prefix(argc, argv);
+        fprintf(stderr, "non-printable byte encountered: 0x%02X", character);
+      }
     }
     printf("\n");
   }
