@@ -1,5 +1,5 @@
 CC := clang
-CCFLAGS := -g -Wall
+CFLAGS := -g -Wall
 
 TARGET = list
 
