@@ -84,18 +84,6 @@ char *tokens_2[128] = {
 /* read a byte from a file */
 int readword(FILE *fd) { return getc(fd) + 256 * getc(fd); }
 
-/* print character */
-int printchar(FILE *fd) {
-  char character = getc(fd);
-  if (character == 0)
-    return -1;
-  if (character != 1)
-    printf("%c", character);
-  if (character == 1)
-    printf("{%d}", getc(fd));
-  return 0;
-}
-
 /* get exponent of floating point number */
 int getexp(FILE *fd) {
   short exp;
@@ -231,14 +219,9 @@ int main(int argc, char *argv[]) { /* declarations */
           character = getc(fd);
           if (character == 0xe6) {
             printf("'");
-            while (!printchar(fd))
-              ;
-            break;
           } else {
-            fprintf(stderr, "%s: %s: error in MSX-BASIC file\n", argv[0],
-                    argv[1]);
-            fclose(fd);
-            exit(1);
+            printf(":REM");
+            forwarded = character;
           }
         } else {
           printf(":");
