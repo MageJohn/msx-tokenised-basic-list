@@ -1,15 +1,13 @@
 /****************************************************************************\
- list v0.0
-
- This programm will convert a MSX-BASIC file into an ascii file.
- syntax: list [inputfile] [--help]
- If no inputfile was specified, list will automaticly uses the stdin.
-
- Vincent van Dam
- (vandam@ronix.ptf.hro.nl)
-
- Please notify me in case of modifications.
- Last modified: 26-6-97
+ * list v1.0
+ *
+ * This programm will convert a MSX-BASIC file into an ascii file.
+ * syntax: list [inputfile] [--help]
+ * If no inputfile was specified, list will automaticly uses the stdin.
+ *
+ * Original code: Vincent van Dam
+ *
+ * Modifications: Yuri Pieters
 \****************************************************************************/
 
 /* Include files */
