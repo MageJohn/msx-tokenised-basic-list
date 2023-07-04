@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define TOKENS_1_LEN 128
+#define TOKENS_1_LEN 127
 #define TOKENS_2_LEN 64
 
 /* the BASIC tokens */
@@ -54,7 +54,7 @@ char *tokens_1[TOKENS_1_LEN] = {
     "<",       "+",      "-",      "*",       /* 0xF0-0xF3 */
     "/",       "^",      "AND",    "OR",      /* 0xF4-0xF7 */
     "XOR",     "EQV",    "IMP",    "MOD",     /* 0xF8-0xFB */
-    "\\",      NULL,     NULL,     NULL       /* 0xFC-0xFF */
+    "\\",      NULL,     NULL                 /* 0xFC-0xFE */
 };
 
 // Two byte tokens prefixed with 0xFF
