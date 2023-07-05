@@ -11,13 +11,24 @@
 \****************************************************************************/
 
 /* Include files */
+#include <assert.h>
 #include <ctype.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+/* Constants */
 #define TOKENS_1_LEN 127
 #define TOKENS_2_LEN 64
+
+/* Macros */
+#define print_error(...)                                                       \
+  {                                                                            \
+    fprintf(stderr, "%s: ", prog_name);                                        \
+    fprintf(stderr, __VA_ARGS__);                                              \
+  }
 
 /* the BASIC tokens */
 
@@ -31,7 +42,7 @@ char *tokens_1[TOKENS_1_LEN] = {
     "NEW",     "ON",     "WAIT",   "DEF",     /* 0x94-0x97 */
     "POKE",    "CONT",   "CSAVE",  "CLOAD",   /* 0x98-0x9B */
     "OUT",     "LPRINT", "LLIST",  "CLS",     /* 0x9C-0x9F */
-    "WIDTH",   NULL,     "TRON",   "TROFF",   /* 0xA0-0xA3 */
+    "WIDTH",   "ELSE",   "TRON",   "TROFF",   /* 0xA0-0xA3 */
     "SWAP",    "ERASE",  "ERROR",  "RESUME",  /* 0xA4-0xA7 */
     "DELETE",  "AUTO",   "RENUM",  "DEFSTR",  /* 0xA8-0xAB */
     "DEFINT",  "DEFSNG", "DEFDBL", "LINE",    /* 0xAC-0xAF */
@@ -48,7 +59,7 @@ char *tokens_1[TOKENS_1_LEN] = {
     "LOCATE",  "TO",     "THEN",   "TABC",    /* 0xD8-0xDB */
     "STEP",    "USR",    "FN",     "SPC(",    /* 0xDC-0xDF */
     "NOT",     "ERL",    "ERR",    "STRING$", /* 0xE0-0xE3 */
-    "USING",   "INSRT",  NULL,     "VARPTR",  /* 0xE4-0xE7 */
+    "USING",   "INSRT",  "'",      "VARPTR",  /* 0xE4-0xE7 */
     "CSRLIN",  "ATTR$",  "DSKI$",  "OFF",     /* 0xE8-0xEB */
     "INKEY$",  "POINT",  ">",      "=",       /* 0xEC-0xEF */
     "<",       "+",      "-",      "*",       /* 0xF0-0xF3 */
@@ -77,41 +88,159 @@ char *tokens_2[TOKENS_2_LEN] = {
     NULL,    NULL,     NULL,     NULL,    /* 0xBC-0xBF */
 };
 
-/* read a byte from a file */
-int readword(FILE *fd) { return getc(fd) + 256 * getc(fd); }
+// Global variable used for error printing
+char *prog_name;
 
-/* get exponent of floating point number */
-int getexp(FILE *fd) {
-  short exp;
-  exp = getc(fd);
-  if (exp > 127) {
-    exp = exp - 128;
-    printf("-");
-  }
-  return exp > 63 ? exp - 64 : -exp;
+struct State {
+  FILE *fd;
+  uint8_t current;
+  uint8_t previous;
+  uint8_t buf[2];
+  int32_t position;
+};
+
+void cleanup_and_exit(struct State *state, int status) {
+  fclose(state->fd);
+  exit(status);
 }
 
-/* print single precision floating point */
-void printprecision(FILE *fd, int digits) {
-  char lo, hi, string[20];
-  int exp, i, j, flag;
-  exp = getexp(fd);
+/**
+ * Read a byte from fd, and write it to byte.
+ *
+ * Returns false on success, and true on failure.
+ */
+bool get_byte(FILE *fd, uint8_t *byte) {
+  int b = getc(fd);
+  if (b == EOF) {
+    if (feof(fd)) {
+      // pad after EOF with nulls
+      b = 0;
+    } else {
+      print_error("unexpected error reading from input\n");
+      return true;
+    }
+  }
+  // the integer downcast should succeed
+  assert(b >= 0 && b <= UINT8_MAX);
+  *byte = b;
+  return false;
+}
+
+void init_state(struct State *state, FILE *fd) {
+  if (fd == NULL) {
+    print_error("panic: NULL pointer passed to init_state\n");
+    exit(1);
+  }
+  *state = (struct State){
+      .fd = fd,
+      .position = -1,
+  };
+
+  if (get_byte(state->fd, &state->buf[0]) ||
+      get_byte(state->fd, &state->buf[1]))
+    cleanup_and_exit(state, 1);
+}
+
+/**
+ * Get the position in the file of the current byte.
+ */
+uint16_t position(struct State *state) { return state->position; }
+
+/**
+ * Get the current character, which is the byte at state->position.
+ *
+ * Before advance_char or advance_word has been called for the first time, the
+ * behaviour of this function is undefined.
+ */
+uint8_t current(struct State *state) { return state->current; }
+
+/**
+ * Get the current word, which is made from the bytes at state->position and
+ * state->position-1.
+ *
+ * Before advance_char has been called twice or advance_word has been called for
+ * the first time, the behaviour of this function is undefined.
+ */
+uint16_t current_word(struct State *state) {
+  return (state->current << 8) | state->previous;
+}
+
+/**
+ * Look at the next character, which is the byte at state->position+1
+ */
+uint8_t peek(struct State *state, uint8_t incr) {
+  assert(incr == 1 || incr == 2);
+  if (incr == 1) {
+    return state->buf[0];
+  } else {
+    return state->buf[1];
+  }
+}
+
+/** Advance state->position by 1 */
+void advance(struct State *state) {
+  state->previous = state->current;
+  state->current = state->buf[0];
+  state->buf[0] = state->buf[1];
+  if (get_byte(state->fd, &state->buf[1])) {
+    cleanup_and_exit(state, 1);
+  }
+  state->position++;
+}
+
+/** Advance state->position by 2 */
+void advance_word(struct State *state) {
+  state->previous = state->buf[0];
+  state->current = state->buf[1];
+  if (get_byte(state->fd, &state->buf[0]) ||
+      get_byte(state->fd, &state->buf[1]))
+    cleanup_and_exit(state, 1);
+  state->position += 2;
+}
+
+/** Advance state->position by 1 and return current_char(state). */
+uint8_t next(struct State *state) {
+  advance(state);
+  return current(state);
+}
+
+/* Advance state->position by 2 and return current_word(state). */
+uint16_t next_word(struct State *state) {
+  advance_word(state);
+  return current_word(state);
+}
+
+/* get exponent of floating point number */
+int8_t get_exp(uint8_t exp) {
+  // The first bit is the sign. It should always be 0 in tokenised BASIC.
+  if (exp & 0x80) {
+    // This shouldn't happen, because tokenised BASIC stores a negative float as
+    // the "-" token (0xF2) followed by a positive float. But there's no point
+    // in not supporting it.
+    exp &= 0x7F;
+    printf("-");
+  }
+  // The exp is a number in the range -63 <= exp <= 63, stored with 64 added.
+  return exp - 64;
+}
+
+/* print binary-coded decimal floating point number like an MSX would */
+void print_bcd_float(uint8_t *buf, uint8_t buf_len) {
+  // max 14 digits + decimal point + space for E+xx + null terminator
+  uint8_t string[20] = {};
+  int8_t exp = get_exp(buf[0]);
+  uint8_t digits = buf_len * 2;
 
   /* get digits */
-  for (i = j = 0; i < digits * 2; i++) {
-    if (i % 2 == 0) {
-      hi = getc(fd);
-      lo = hi & 0x0F;
-      hi = hi >> 4;
-      string[j++] = '0' + hi;
-    } else
-      string[j++] = '0' + lo;
+  for (uint8_t i = 1; i < buf_len; i++) {
+    uint8_t byte = buf[i];
+    string[2 * i] = '0' + byte & 0x0F;
+    string[2 * i + 1] = '0' + (byte >> 4);
   }
-  string[j] = '\0';
 
   /* insert dot */
-  if (exp > digits * 2) {
-    for (i = (digits * 2 + 2); i > 1; i--)
+  if (exp > digits) {
+    for (uint32_t i = (digits + 2); i > 1; i--)
       string[i] = string[i - 1];
     string[1] = '.';
     if (exp > 0)
@@ -119,13 +248,14 @@ void printprecision(FILE *fd, int digits) {
     else
       exp++;
   } else {
-    for (i = (digits * 2 + 2); i > exp; i--)
+    for (uint32_t i = (digits + 2); i > exp; i--)
       string[i] = string[i - 1];
     string[exp] = '.';
   }
 
+  uint32_t flag = 0;
   /* delete extra zero's */
-  for (i = flag = 0; i < digits * 2 + 2; i++)
+  for (uint32_t i = 0; i < digits + 2; i++)
     if (string[i] == '0')
       if (flag != 0)
         ;
@@ -143,134 +273,138 @@ void printprecision(FILE *fd, int digits) {
   }
 
   printf("%s", string);
-  if (exp > digits * 2)
-    printf(" E%d", exp);
-}
-
-void error_prefix(int argc, char *argv[]) {
-  if (argc == 2)
-    fprintf(stderr, "%s: %s: ", argv[0], argv[1]);
-  else
-    fprintf(stderr, "%s: ", argv[0]);
+  if (exp > digits)
+    printf("E%+d", exp);
 }
 
 /* The main routine */
-int main(int argc, char *argv[]) { /* declarations */
-  FILE *fd;
-  short character;
-  short forwarded;
-  int linenumber;
-  int goon;
+int main(int argc, char *argv[]) {
+  struct State state_struct;
+  // allow all references to state to be uniform here and in other functions.
+  struct State *state = &state_struct;
 
-  /* Check argument syntax */
+  // init the global state
+  prog_name = argv[0];
+
+  // Check argument syntax
   if (argc > 2) {
-    fprintf(stderr,
-            "%s: syntax error\n"
-            "Usage: %s [filename] [--help]\n",
-            argv[0], argv[0]);
+    print_error("syntax error\n"
+                "Usage: %s [filename] [--help]\n",
+                prog_name);
     exit(1);
   }
-  if (argc == 2 && !strcmp(argv[1], "--help")) {
-    printf("%s [filename] [--help]\n", argv[0]);
-    exit(1);
+
+  if (argc == 2 &&
+      (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+    printf("%s [filename] [--help]\n", prog_name);
+    exit(0);
   }
 
   /* Open file or stdin */
   if (argc == 1)
-    fd = stdin;
-  else if ((fd = fopen(argv[1], "r")) == NULL) {
-    fprintf(stderr, "%s: %s: cannot open file\n", argv[0], argv[1]);
-    exit(1);
+    init_state(state, stdin);
+  else {
+    FILE *fd = fopen(argv[1], "r");
+    if (fd == NULL) {
+      print_error("cannot open file %s\n", argv[1]);
+      exit(1);
+    }
+    init_state(state, fd);
   }
 
-  /* Read header and check if it is a BASIC programm */
-  character = getc(fd);
-  if (character != 0xFF) {
-    error_prefix(argc, argv);
-    fprintf(stderr, "not an MSX-BASIC file\n");
-    exit(1);
+  /* Read header and check if it is a BASIC program */
+  if (next(state) != 0xFF) {
+    print_error("not an MSX-BASIC file\n");
+    cleanup_and_exit(state, 1);
   }
 
   /* Process the input file */
-  /* read line number, and address were next line begins */
-  while (readword(fd) != 0) {
-    linenumber = readword(fd);
-    printf("%d ", linenumber);
+
+  // the next word here is the address of the next line. Addresses are file
+  // position + 0x8000 (on the MSX2);
+  while (next_word(state) != 0) {
+    // print the line number
+    printf("%d ", next_word(state));
+
     /* read line of BASIC file */
-    goon = 1;
-    forwarded = 0;
-    while (goon) {
-      if (forwarded) {
-        character = forwarded;
-        forwarded = 0;
-      } else
-        character = getc(fd);
-      if (character == 0)
-        goon = 0;
-      else if (character >= 0x80 && character < (TOKENS_1_LEN + 0x80)) {
-        char *token = tokens_1[character - 0x80];
+    while ((next(state)) != 0) {
+      if (current(state) == 0x3A) {
+        // 0x3A is the ':' char, and is skipped in a few cases
+
+        if (peek(state, 1) == 0xA1) {
+          // the tuple of 0x3A 0xA1 is "ELSE".
+          continue;
+        } else if (peek(state, 1) == 0x8F && peek(state, 2) == 0xE6) {
+          // the triplet of 0x3A 0x8F 0xE6 is handled specially as a single
+          // quote ("'") comment
+          advance(state);
+          continue;
+        }
+      }
+
+      if (current(state) >= 0x80 && current(state) < (TOKENS_1_LEN + 0x80)) {
+        char *token = tokens_1[current(state) - 0x80];
         if (token != NULL)
           printf("%s", token);
         else {
-          error_prefix(argc, argv);
-          fprintf(stderr, "invalid token byte 0x%02X\n", character);
+          print_error("invalid token byte 0x%02X at position 0x%04X\n",
+                      current(state), position(state));
         }
-      } else if (character == 0xFF) {
-        character = getc(fd);
-        if (character >= 0x80 && character < (TOKENS_2_LEN + 0x80)) {
-          char *token = tokens_2[character - 0x80];
+      } else if (current(state) == 0xFF) {
+        advance(state);
+        if (current(state) >= 0x80 && current(state) < (TOKENS_2_LEN + 0x80)) {
+          char *token = tokens_2[current(state) - 0x80];
           if (token != NULL)
             printf("%s", token);
           else {
-            error_prefix(argc, argv);
-            fprintf(stderr, "invalid token byte pair 0xFF 0x%02X\n", character);
-          }
-        }
-      } else if (character == 0x3A) {
-        character = getc(fd);
-        if (character == 0xA1)
-          printf("ELSE");
-        else if (character == 0x8F) {
-          character = getc(fd);
-          if (character == 0xE6) {
-            printf("'");
-          } else {
-            printf(":REM");
-            forwarded = character;
+            print_error(
+                "invalid token byte pair 0xFF 0x%02X at position 0x%04X\n",
+                current(state), position(state));
           }
         } else {
-          printf(":");
-          forwarded = character;
+          print_error("invalid byte 0x%02X following 0xFF at position 0x%04X\n",
+                      current(state), position(state));
         }
-      } else if (character == 0x0B) /* octal number */
-        printf("&O%o", readword(fd));
-      else if (character == 0x0C) /* hexadecimal number */
-        printf("&H%x", readword(fd));
-      else if (character == 0x0D) /* line number: address */
+      } else if (current(state) == 0x0B) /* octal number */
+        printf("&O%o", next_word(state));
+      else if (current(state) == 0x0C) /* hexadecimal number */
+        printf("&H%x", next_word(state));
+      else if (current(state) == 0x0D) {
+        /* line number: absolute address. this form should only
+         * ever exist in MSX RAM after the RUN command */
+        advance_word(state);
         printf("{not yet implementated line reference}");
-      else if (character == 0x0E) /* line number */
-        printf("%d", readword(fd));
-      else if (character == 0x0F) /* integer */
-        printf("%d", getc(fd));
-      else if (character == 0x1C) /* integer */
-        printf("%d", readword(fd));
-      else if (character == 0x1D) /* single precission */
-        printprecision(fd, 3);
-      else if (character == 0x1F) { /* double precission */
-        printprecision(fd, 7);
+      } else if (current(state) == 0x0E) /* line number */
+        printf("%d", next_word(state));
+      else if (current(state) == 0x0F) /* integer from 10 to 255 */
+        printf("%d", next(state));
+      else if (current(state) == 0x1C) /* integer from 256 to 32767 */
+        printf("%d", next_word(state));
+      else if (current(state) == 0x1D) { /* single precision */
+        uint8_t buf[4];
+        for (uint8_t i = 0; i < 4; i++) {
+          buf[i] = next(state);
+        }
+        print_bcd_float(buf, 3);
+      } else if (current(state) == 0x1F) { /* double precision */
+        uint8_t buf[8];
+        for (uint8_t i = 0; i < 8; i++) {
+          buf[i] = next(state);
+        }
+        print_bcd_float(buf, 7);
         printf("#");
-      } else if (character >= 0x11 && character <= 0x1A)
-        printf("%d", character - 0x11);
-      else if (isprint(character))
-        printf("%c", character);
+      } else if (current(state) >= 0x11 && current(state) <= 0x1A)
+        printf("%d", current(state) - 0x11);
+      else if (isprint(current(state)))
+        printf("%c", current(state));
       else {
-        error_prefix(argc, argv);
-        fprintf(stderr, "non-printable byte encountered: 0x%02X", character);
+        print_error(
+            "non-printable byte 0x%02X encountered at position 0x%04X\n",
+            current(state), position(state));
       }
     }
     printf("\n");
   }
 
-  /* Close file or stdin */
-  fclose(fd);
+  cleanup_and_exit(state, 0);
 }
