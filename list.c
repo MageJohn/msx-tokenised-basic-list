@@ -1,5 +1,5 @@
 /****************************************************************************\
- * list v1.0
+ * list v2.0
  *
  * This programm will convert a MSX-BASIC file into an ascii file.
  * syntax: list [inputfile] [--help]
