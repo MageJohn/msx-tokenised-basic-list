@@ -122,7 +122,7 @@ uint8_t get_byte(FILE *fd) {
 void init_state(struct State *state, FILE *fd) {
   if (fd == NULL) {
     print_error("panic: NULL pointer passed to init_state\n");
-    exit(1);
+    exit(EXIT_FAILURE);
   }
   *state = (struct State){
       .fd = fd,
@@ -317,13 +317,13 @@ int main(int argc, char *argv[]) {
     print_error("syntax error\n"
                 "Usage: %s [filename] [--help]\n",
                 prog_name);
-    exit(1);
+    exit(EXIT_FAILURE);
   }
 
   if (argc == 2 &&
       (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
     printf("%s [filename] [--help]\n", prog_name);
-    exit(0);
+    exit(EXIT_SUCCESS);
   }
 
   /* Open file or stdin */
@@ -333,7 +333,7 @@ int main(int argc, char *argv[]) {
     FILE *fd = fopen(argv[1], "r");
     if (fd == NULL) {
       print_error("cannot open file %s\n", argv[1]);
-      exit(1);
+      exit(EXIT_FAILURE);
     }
     init_state(state, fd);
   }
