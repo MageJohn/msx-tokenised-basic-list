@@ -212,7 +212,7 @@ uint16_t next_word(struct State *state) {
 
 /* get exponent of floating point number */
 int8_t get_exp(uint8_t exp) {
-  // The first bit is the sign. It should always be 0 in tokenised BASIC.
+  // The first bit is the sign.
   if (exp & 0x80) {
     // This shouldn't happen, because tokenised BASIC stores a negative float as
     // the "-" token (0xF2) followed by a positive float. But there's no point
@@ -224,57 +224,94 @@ int8_t get_exp(uint8_t exp) {
   return exp - 64;
 }
 
+enum FloatPrec { PREC_SINGLE, PREC_DOUBLE };
+enum { FLT_BUF_SIZE = 8 };
+
 /* print binary-coded decimal floating point number like an MSX would */
-void print_bcd_float(uint8_t *buf, uint8_t buf_len) {
-  // max 14 digits + decimal point + space for E+xx + null terminator
-  uint8_t string[20] = {};
-  int8_t exp = get_exp(buf[0]);
-  uint8_t digits = buf_len * 2;
+void print_bcd_float(uint8_t num_bytes[static FLT_BUF_SIZE],
+                     enum FloatPrec prec) {
+  /*
+   * Start by extracting the necessary data to print the number
+   */
 
-  /* get digits */
-  for (uint8_t i = 1; i < buf_len; i++) {
-    uint8_t byte = buf[i];
-    string[2 * i] = '0' + byte & 0x0F;
-    string[2 * i + 1] = '0' + (byte >> 4);
+  // first byte is the sign and exponent
+  int8_t exp = get_exp(num_bytes[0]);
+
+  enum { DigitsLen = 14 };
+  uint8_t digits[DigitsLen];
+
+  for (uint8_t i = 1; i < FLT_BUF_SIZE; i++) {
+    digits[(i - 1) * 2] = '0' + ((num_bytes[i] & 0xF0) >> 4);
+    digits[(i - 1) * 2 + 1] = '0' + (num_bytes[i] & 0x0F);
   }
 
-  /* insert dot */
-  if (exp > digits) {
-    for (uint32_t i = (digits + 2); i > 1; i--)
-      string[i] = string[i - 1];
-    string[1] = '.';
-    if (exp > 0)
-      exp--;
-    else
-      exp++;
-  } else {
-    for (uint32_t i = (digits + 2); i > exp; i--)
-      string[i] = string[i - 1];
-    string[exp] = '.';
-  }
-
-  uint32_t flag = 0;
-  /* delete extra zero's */
-  for (uint32_t i = 0; i < digits + 2; i++)
-    if (string[i] == '0')
-      if (flag != 0)
-        ;
-      else
-        flag = i;
-    else if (string[i] == '\0')
+  uint8_t sig_figs = 0;
+  // search from the end of the buffer for the last non-zero digit
+  for (uint8_t i = DigitsLen - 1; i >= 0; i--) {
+    if (digits[i] != '0') {
+      sig_figs = i + 1;
       break;
-    else
-      flag = 0;
-  if (flag != 0) {
-    if (string[flag - 1] == '.')
-      string[flag - 1] = '\0';
-    else
-      string[flag] = '\0';
+    }
+  }
+
+  /*
+   * Now we have all relevant info, format the float into a buffer.
+   */
+
+  // max size: 14 digits + decimal point + E(+|-)\d\d + null terminator
+  enum { StringLen = DigitsLen + 1 + 4 + 1 };
+  char string[StringLen] = {0};
+
+  uint8_t si = 0; // string index
+  uint8_t di = 0; // digits index
+
+  if (-1 <= exp && exp <= DigitsLen) {
+    // for exponents in this range, MSX prints the number without scientific
+    // notation
+
+    // digits before the decimal point
+    for (; di < exp;)
+      string[si++] = digits[di++];
+
+    if (di < sig_figs) {
+      string[si++] = '.';
+
+      // zeros between decimal point and the first significant figure
+      for (int8_t zeros = -exp; zeros > 0; zeros--)
+        string[si++] = '0';
+
+      // digits after the decimal point
+      for (; di < sig_figs;)
+        string[si++] = digits[di++];
+
+      // if it's a double precision float, indicate it with '#'
+      if (prec == PREC_DOUBLE)
+        string[si++] = '#';
+    } else {
+      // when there's no decimal point, indicate that it's a double or single
+      // precision float
+      string[si] = prec == PREC_DOUBLE ? '#' : '!';
+    }
+  } else {
+    // for exponents in this range, MSX prints the number in scientific notation
+
+    // single digit before the decimal point
+    string[si++] = digits[di++];
+
+    if (di < sig_figs) {
+      string[si++] = '.';
+
+      // digits after the decimal point
+      for (; di < sig_figs;)
+        string[si++] = digits[di++];
+    }
+
+    // The float is stored is 0.123456E+63, but is printed as 1.23456E+62. So
+    // print the exponent minus one.
+    snprintf(&string[si], StringLen - si, "E%+d", exp - 1);
   }
 
   printf("%s", string);
-  if (exp > digits)
-    printf("E%+d", exp);
 }
 
 /* The main routine */
@@ -381,18 +418,17 @@ int main(int argc, char *argv[]) {
       else if (current(state) == 0x1C) /* integer from 256 to 32767 */
         printf("%d", next_word(state));
       else if (current(state) == 0x1D) { /* single precision */
-        uint8_t buf[4];
+        uint8_t num_buf[FLT_BUF_SIZE] = {0};
         for (uint8_t i = 0; i < 4; i++) {
-          buf[i] = next(state);
+          num_buf[i] = next(state);
         }
-        print_bcd_float(buf, 3);
+        print_bcd_float(num_buf, PREC_SINGLE);
       } else if (current(state) == 0x1F) { /* double precision */
-        uint8_t buf[8];
+        uint8_t num_buf[FLT_BUF_SIZE];
         for (uint8_t i = 0; i < 8; i++) {
-          buf[i] = next(state);
+          num_buf[i] = next(state);
         }
-        print_bcd_float(buf, 7);
-        printf("#");
+        print_bcd_float(num_buf, PREC_DOUBLE);
       } else if (current(state) >= 0x11 && current(state) <= 0x1A)
         printf("%d", current(state) - 0x11);
       else if (isprint(current(state)))
