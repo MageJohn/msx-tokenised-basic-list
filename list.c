@@ -13,7 +13,6 @@
 /* Include files */
 #include <assert.h>
 #include <ctype.h>
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -101,17 +100,10 @@ struct State {
   int32_t position;
 };
 
-void cleanup_and_exit(struct State *state, int status) {
-  fclose(state->fd);
-  exit(status);
-}
-
 /**
- * Read a byte from fd, and write it to byte.
- *
- * Returns false on success, and true on failure.
+ * Read and return a byte from fd
  */
-bool get_byte(FILE *fd, uint8_t *byte) {
+uint8_t get_byte(FILE *fd) {
   int b = getc(fd);
   if (b == EOF) {
     if (feof(fd)) {
@@ -119,13 +111,12 @@ bool get_byte(FILE *fd, uint8_t *byte) {
       b = 0;
     } else {
       print_error("unexpected error reading from input\n");
-      return true;
+      exit(EXIT_FAILURE);
     }
   }
   // the integer downcast should succeed
   assert(b >= 0 && b <= UINT8_MAX);
-  *byte = b;
-  return false;
+  return b;
 }
 
 void init_state(struct State *state, FILE *fd) {
@@ -138,9 +129,8 @@ void init_state(struct State *state, FILE *fd) {
       .position = -1,
   };
 
-  if (get_byte(state->fd, &state->buf[0]) ||
-      get_byte(state->fd, &state->buf[1]))
-    cleanup_and_exit(state, 1);
+  state->buf[0] = get_byte(state->fd);
+  state->buf[1] = get_byte(state->fd);
 }
 
 /**
@@ -184,9 +174,7 @@ void advance(struct State *state) {
   state->previous = state->current;
   state->current = state->buf[0];
   state->buf[0] = state->buf[1];
-  if (get_byte(state->fd, &state->buf[1])) {
-    cleanup_and_exit(state, 1);
-  }
+  state->buf[1] = get_byte(state->fd);
   state->position++;
 }
 
@@ -194,9 +182,8 @@ void advance(struct State *state) {
 void advance_word(struct State *state) {
   state->previous = state->buf[0];
   state->current = state->buf[1];
-  if (get_byte(state->fd, &state->buf[0]) ||
-      get_byte(state->fd, &state->buf[1]))
-    cleanup_and_exit(state, 1);
+  state->buf[0] = get_byte(state->fd);
+  state->buf[1] = get_byte(state->fd);
   state->position += 2;
 }
 
@@ -354,7 +341,7 @@ int main(int argc, char *argv[]) {
   /* Read header and check if it is a BASIC program */
   if (next(state) != 0xFF) {
     print_error("not an MSX-BASIC file\n");
-    cleanup_and_exit(state, 1);
+    exit(EXIT_FAILURE);
   }
 
   /* Process the input file */
@@ -444,5 +431,5 @@ int main(int argc, char *argv[]) {
     printf("\n");
   }
 
-  cleanup_and_exit(state, 0);
+  exit(EXIT_SUCCESS);
 }
