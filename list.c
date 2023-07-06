@@ -323,7 +323,7 @@ int main(int argc, char *argv[]) {
   struct State *state = &state_struct;
 
   // init the global state
-  prog_name = argv[0];
+  prog_name = argc > 0 ? argv[0] : "list";
 
   // Check argument syntax
   if (argc > 2) {
