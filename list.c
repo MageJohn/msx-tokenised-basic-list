@@ -19,16 +19,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Constants */
-#define TOKENS_1_LEN 127
-#define TOKENS_2_LEN 64
-
 /* Macros */
 #define print_error(...)                                                       \
   {                                                                            \
     fprintf(stderr, "%s: ", prog_name);                                        \
     fprintf(stderr, __VA_ARGS__);                                              \
   }
+
+/* Constants */
+enum {
+  TOKENS_1_LEN = 127,
+  TOKENS_2_LEN = 64,
+};
 
 /* the BASIC tokens */
 
