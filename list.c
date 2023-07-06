@@ -93,10 +93,13 @@ char *tokens_2[TOKENS_2_LEN] = {
 char *prog_name;
 
 struct State {
+  enum {
+    STATE_BUF_SIZE = 4,
+    STATE_BUF_POS_I = 1, // the index in buf which corresponds to state->position
+  };
+
   FILE *fd;
-  uint8_t current;
-  uint8_t previous;
-  uint8_t buf[2];
+  uint8_t buf[STATE_BUF_SIZE];
   int32_t position;
 };
 
@@ -129,8 +132,9 @@ void init_state(struct State *state, FILE *fd) {
       .position = -1,
   };
 
-  state->buf[0] = get_byte(state->fd);
-  state->buf[1] = get_byte(state->fd);
+  for (uint8_t i = STATE_BUF_POS_I + 1; i < STATE_BUF_SIZE; i++) {
+    state->buf[i] = get_byte(state->fd);
+  }
 }
 
 /**
@@ -144,7 +148,7 @@ uint16_t position(struct State *state) { return state->position; }
  * Before advance_char or advance_word has been called for the first time, the
  * behaviour of this function is undefined.
  */
-uint8_t current(struct State *state) { return state->current; }
+uint8_t current(struct State *state) { return state->buf[STATE_BUF_POS_I]; }
 
 /**
  * Get the current word, which is made from the bytes at state->position and
@@ -154,36 +158,33 @@ uint8_t current(struct State *state) { return state->current; }
  * the first time, the behaviour of this function is undefined.
  */
 uint16_t current_word(struct State *state) {
-  return (state->current << 8) | state->previous;
+  return (state->buf[STATE_BUF_POS_I] << 8) | state->buf[STATE_BUF_POS_I - 1];
 }
 
 /**
- * Look at the next character, which is the byte at state->position+1
+ * Look at the byte at state->position + incr
  */
 uint8_t peek(struct State *state, uint8_t incr) {
-  assert(incr == 1 || incr == 2);
-  if (incr == 1) {
-    return state->buf[0];
-  } else {
-    return state->buf[1];
-  }
+  assert(STATE_BUF_POS_I + incr < STATE_BUF_SIZE);
+  return state->buf[STATE_BUF_POS_I + incr];
 }
 
 /** Advance state->position by 1 */
 void advance(struct State *state) {
-  state->previous = state->current;
-  state->current = state->buf[0];
-  state->buf[0] = state->buf[1];
-  state->buf[1] = get_byte(state->fd);
+  for (uint8_t i = 0; i < STATE_BUF_SIZE - 1; i++) {
+    state->buf[i] = state->buf[i + 1];
+  }
+  state->buf[STATE_BUF_SIZE - 1] = get_byte(state->fd);
   state->position++;
 }
 
 /** Advance state->position by 2 */
 void advance_word(struct State *state) {
-  state->previous = state->buf[0];
-  state->current = state->buf[1];
-  state->buf[0] = get_byte(state->fd);
-  state->buf[1] = get_byte(state->fd);
+  for (uint8_t i = 0; i < STATE_BUF_SIZE - 2; i++) {
+    state->buf[i] = state->buf[i + 2];
+  }
+  state->buf[STATE_BUF_SIZE - 2] = get_byte(state->fd);
+  state->buf[STATE_BUF_SIZE - 1] = get_byte(state->fd);
   state->position += 2;
 }
 
